@@ -1,83 +1,204 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cloth simulation · Edward Song</title><style>
-*{box-sizing:border-box}body{background:#fcfbf7;color:#182d34;font:17px/1.55 system-ui,sans-serif;margin:0}main{max-width:920px;margin:auto;padding:36px 5vw}section{margin-bottom:4rem}h1,h2,h3{font-family:Georgia,serif;line-height:1.13}h1{font-size:3.3rem}h2{font-size:2rem;border-top:2px solid #597678;padding-top:1rem}p{max-width:78ch}a{color:#175c64}.row{display:flex;gap:12px;margin:20px 0}figure{margin:0;flex:1;max-width:620px}img{width:100%;display:block}figcaption{font-size:.85rem;margin:5px 0}nav{font-size:.9rem}@media(max-width:600px){.row{flex-wrap:wrap}figure{flex-basis:220px}}@media print{section{break-before:page}section:first-of-type{break-before:auto}figure{break-inside:avoid}main{padding:0}}</style><main>
-<section><h1>Cloth simulation</h1>
-<nav><a href="https://cal-cs184-student.github.io/hw4-clothsim-edward-writeup/">Course write-up website</a> · <a href="https://github.com/cal-cs184-student/hw4-clothsim-edward">Code repository</a> · <a href="writeup.pdf">PDF</a></nav>
-<p>Edward Song · CS 184/284A · Fall 2026</p>
-<h3>Overview</h3>
-<p>A square of fabric can fall as a single flat sheet, swing from two pins, or buckle into a pile. The simulator uses the same grid in each case. Springs carry tension through the grid, a position-based integrator advances it, and contact corrections keep nearby surfaces apart. The most striking difference in these experiments was the role of damping: changing it altered where the free edge was in its swing even when stiffness and gravity stayed fixed.</p>
-<h3>Part 1 · Masses and springs</h3>
-<p>Grid coordinates span both endpoints of the sheet. The horizontal scene starts at y = 1. Vertical sheets start in the xy plane with a small random z offset (±0.001) so they can buckle out of plane. After storing every mass in row-major order, the grid builder connects earlier neighbors and records the initial distance of each spring. Building in two passes keeps pointers into the mass array valid.</p>
-<div class="row"><figure><img src="images/wire-axis.jpg" alt="Structural and bending"><figcaption>Structural and bending</figcaption></figure><figure><img src="images/wire-diag.jpg" alt="Shear only"><figcaption>Shear only</figcaption></figure><figure><img src="images/wire-all.jpg" alt="All three families"><figcaption>All three families</figcaption></figure></div>
-<p>Pinned2, frame 0. The insets enlarge the same patch. The 4,900 structural links trace the grid axes. The 4,800 bending links span two intervals on those same axes, so they overlap in this view. The 4,802 shear links make the diagonal crosses. All 2,500 masses and the three spring counts were checked in the simulator.</p>
-<h3>Capture method</h3>
-<p>Each experiment loads a supplied scene through the C++ scene loader and advances Cloth::simulate at 90 frames/s with 30 substeps/frame. Figures are offscreen framebuffer captures using the exported simulation geometry and the project shader bodies on OpenGL ES. The desktop GLSL pairs were also compiled and linked separately. Camera and material settings stay fixed within each comparison.</p>
-</section>
-<section><h2>Part 2 · Spring stiffness</h2>
-<p>Each substep resets the forces to mass times external acceleration. An enabled spring applies equal and opposite forces proportional to its extension. Bending uses one fifth of the selected stiffness. Verlet integration advances each free mass by its previous displacement times (1 − damping/100), plus acceleration times the squared substep duration. Pinned masses keep their positions.</p>
-<p>After collision response, a spring longer than 110% of its rest length pulls its free endpoints together. Two free endpoints share the correction equally. A lone free endpoint takes the whole correction. This local pass limits extreme stretch during the swing.</p>
-<div class="row"><figure><img src="images/soft-45.jpg" alt="Stiffness 500 · frame 45"><figcaption>Stiffness 500 · frame 45</figcaption></figure><figure><img src="images/base-45.jpg" alt="Stiffness 5,000 · frame 45"><figcaption>Stiffness 5,000 · frame 45</figcaption></figure><figure><img src="images/stiff-45.jpg" alt="Stiffness 50,000 · frame 45"><figcaption>Stiffness 50,000 · frame 45</figcaption></figure></div>
-<div class="row"><figure><img src="images/soft-240.jpg" alt="Stiffness 500 · frame 240"><figcaption>Stiffness 500 · frame 240</figcaption></figure><figure><img src="images/base-240.jpg" alt="Stiffness 5,000 · frame 240"><figcaption>Stiffness 5,000 · frame 240</figcaption></figure><figure><img src="images/stiff-240.jpg" alt="Stiffness 50,000 · frame 240"><figcaption>Stiffness 50,000 · frame 240</figcaption></figure></div>
-<p>At release every spring is at rest length, so all three free edges initially accelerate under gravity. At frame 45 the softer sheet still extends farther forward. By frame 240 its free-edge midpoint hangs at y = −0.142, compared with −0.083 at the baseline and −0.022 for the stiff sheet. The stiffer springs need less extension to carry the same weight.</p>
-</section>
-<section><h2>Part 2 · Density and damping</h2>
-<p>Each row varies one input in pinned2. Density values below are the scene values in kg/m². The viewer shows one tenth of these values in g/cm². Defaults are density 150, stiffness 5,000 and damping 0.2%.</p>
-<div class="row"><figure><img src="images/light-45.jpg" alt="Density 30 · frame 45"><figcaption>Density 30 · frame 45</figcaption></figure><figure><img src="images/base-45.jpg" alt="Density 150 · frame 45"><figcaption>Density 150 · frame 45</figcaption></figure><figure><img src="images/heavy-45.jpg" alt="Density 450 · frame 45"><figcaption>Density 450 · frame 45</figcaption></figure></div>
-<div class="row"><figure><img src="images/light-240.jpg" alt="Density 30 · frame 240"><figcaption>Density 30 · frame 240</figcaption></figure><figure><img src="images/base-240.jpg" alt="Density 150 · frame 240"><figcaption>Density 150 · frame 240</figcaption></figure><figure><img src="images/heavy-240.jpg" alt="Density 450 · frame 240"><figcaption>Density 450 · frame 240</figcaption></figure></div>
-<p>Gravity gives each free mass the same initial acceleration. Once the springs stretch, the same spring force produces less acceleration in a heavier mass. At frame 240, the free-edge midpoint lies at y = −0.035, −0.083 and −0.120 from lightest to heaviest.</p>
-<div class="row"><figure><img src="images/undamped-45.jpg" alt="Damping 0.02% · frame 45"><figcaption>Damping 0.02% · frame 45</figcaption></figure><figure><img src="images/base-45.jpg" alt="Damping 0.2% · frame 45"><figcaption>Damping 0.2% · frame 45</figcaption></figure><figure><img src="images/damped-45.jpg" alt="Damping 1% · frame 45"><figcaption>Damping 1% · frame 45</figcaption></figure></div>
-<div class="row"><figure><img src="images/undamped-240.jpg" alt="Damping 0.02% · frame 240"><figcaption>Damping 0.02% · frame 240</figcaption></figure><figure><img src="images/base-240.jpg" alt="Damping 0.2% · frame 240"><figcaption>Damping 0.2% · frame 240</figcaption></figure><figure><img src="images/damped-240.jpg" alt="Damping 1% · frame 240"><figcaption>Damping 1% · frame 240</figcaption></figure></div>
-<p>At 0.02% the sheet swings past vertical and still has visible ripples at frame 240. At 1% it barely dips by frame 45, and its free edge is still 0.59 units forward of the pins at frame 240. Damping removes displacement on every substep, so even a small percentage change strongly affects the transient.</p>
-</section>
-<section><h2>Part 2 · Four pinned corners</h2>
-<div class="row"><figure><img src="images/four.jpg" alt="Pinned4 · frame 360 · default parameters"><figcaption>Pinned4 · frame 360 · default parameters</figcaption></figure></div>
-<p>With four corners fixed at y = 1, the lowest mass settles at y = 0.736. The edge midpoints also sag because only their endpoints are pinned. Between frames 240 and 360 the minimum height agrees to three decimal places.</p>
-<h3>Part 3 · Contact with a plane</h3>
-<div class="row"><figure><img src="images/plane.jpg" alt="Plane · frame 120 · default parameters"><figcaption>Plane · frame 120 · default parameters</figcaption></figure></div>
-<p>The plane test compares signed distances before and after the step. A crossing projects the candidate position onto the plane and adds a small normal offset toward the side it came from. The solver applies a fraction (1 − friction) of the displacement from the previous position to this target. The horizontal drop settles flat, with the mass heights equal to within the capture precision.</p>
-</section>
-<section><h2>Part 3 · Contact with a sphere</h2>
-<p>When a candidate mass lies inside the sphere, its radial direction identifies the nearest point on the surface. The algorithm applies the displacement from the last position toward this contact point, scaled by one minus the sphere friction. At the exact center the previous radial direction provides a fallback. The display sphere is slightly smaller than the collision sphere, as in the starter viewer.</p>
-<div class="row"><figure><img src="images/sphere500.jpg" alt="Stiffness 500"><figcaption>Stiffness 500</figcaption></figure><figure><img src="images/sphere5000.jpg" alt="Stiffness 5,000"><figcaption>Stiffness 5,000</figcaption></figure></div>
-<div class="row"><figure><img src="images/sphere50000.jpg" alt="Stiffness 50,000"><figcaption>Stiffness 50,000</figcaption></figure></div>
-<p>Sphere scene at frame 360. The soft sheet clings to the sphere and forms narrow, deep pleats. The lowest mass reaches y = −0.261. At the default stiffness the folds stand farther out and the low point rises to −0.231. At 50,000 the hem spreads widest and reaches only −0.198. The three runs use the same collision radius, friction, density and damping.</p>
-</section>
-<section><h2>Part 4 · A falling sheet</h2>
-<p>Testing every pair of 2,500 masses would require more than three million distance checks per substep. The solver groups masses by integer cell coordinates using a hash table. Each box spans three nominal grid spacings along x and y, and the larger spacing along z. Flooring each coordinate handles positions on either side of zero.</p>
-<p>Within a bucket, a mass accumulates outward corrections for other masses closer than twice the cloth thickness. It moves by their average divided by the number of substeps. An exact overlap uses the initial separation direction. Restricting candidates to a single bucket is an approximation: a close pair across a cell boundary can be missed.</p>
-<div class="row"><figure><img src="images/fold-10.jpg" alt="Frame 10 · first ripples at the floor"><figcaption>Frame 10 · first ripples at the floor</figcaption></figure><figure><img src="images/fold-32.jpg" alt="Frame 32 · lower edge buckles"><figcaption>Frame 32 · lower edge buckles</figcaption></figure></div>
-<div class="row"><figure><img src="images/fold-60.jpg" alt="Frame 60 · layers accumulate"><figcaption>Frame 60 · layers accumulate</figcaption></figure><figure><img src="images/fold-120.jpg" alt="Frame 120 · low pile"><figcaption>Frame 120 · low pile</figcaption></figure></div>
-<p>Colors encode mesh normals, making the alternating directions of neighboring folds visible. The bottom row uses a closer view. With the default parameters the highest point drops from 0.95 at frame 10 to 0.086 at frame 120. Small adjustments continue as neighboring layers repel one another.</p>
-</section>
-<section><h2>Part 4 · Fold comparisons</h2>
-<p>Each run begins with the same perturbed vertical grid. The captures use the same camera and frame, so the height of the remaining upright sheet can be compared directly.</p>
-<div class="row"><figure><img src="images/foldsoft-32.jpg" alt="Stiffness 500 · density 150"><figcaption>Stiffness 500 · density 150</figcaption></figure><figure><img src="images/fold-32.jpg" alt="Stiffness 5,000 · density 150"><figcaption>Stiffness 5,000 · density 150</figcaption></figure></div>
-<div class="row"><figure><img src="images/foldstiff-32.jpg" alt="Stiffness 50,000 · density 150"><figcaption>Stiffness 50,000 · density 150</figcaption></figure><figure><img src="images/foldheavy-32.jpg" alt="Stiffness 5,000 · density 450"><figcaption>Stiffness 5,000 · density 450</figcaption></figure></div>
-<p>At frame 32 the soft sheet has already compressed to a height of 0.644, compared with 0.670 for the baseline. The stiff sheet reaches 0.739 and bows farther sideways at its base. Higher stiffness resists the rapid bending that forms a tight stack. Tripling the density with stiffness held fixed lowers the top to 0.655. Its added inertia lets the upper sheet push farther down into the folds.</p>
-</section>
-<section><h2>Part 5 · Lighting</h2>
-<p>The vertex shader transforms the mesh into clip space and passes world positions, normals, tangents and texture coordinates to the rasterizer. The rasterizer interpolates them across each triangle. The fragment shader uses those interpolated values to compute a color for each visible sample.</p>
-<div class="row"><figure><img src="images/ambient.jpg" alt="Ambient only"><figcaption>Ambient only</figcaption></figure><figure><img src="images/diffuse.jpg" alt="Diffuse only"><figcaption>Diffuse only</figcaption></figure></div>
-<div class="row"><figure><img src="images/specular.jpg" alt="Specular only"><figcaption>Specular only</figcaption></figure><figure><img src="images/combined.jpg" alt="Full Blinn–Phong"><figcaption>Full Blinn–Phong</figcaption></figure></div>
-<p>Ambient supplies a uniform material-colored floor. Diffuse scales the material color by the positive normal–light cosine and the point light’s inverse-square irradiance. Specular uses the angle between the normal and the halfway direction between light and camera. Raising that cosine to the 48th power concentrates energy in the small highlight. Adding the three terms preserves the shaded silhouette and places the highlight on the lit side.</p>
-</section>
-<section><h2>Part 5 · Texture and surface relief</h2>
-<div class="row"><figure><img src="images/TextureCloth.jpg" alt="Original plaid · four-corner cloth"><figcaption>Original plaid · four-corner cloth</figcaption></figure><figure><img src="images/BumpCloth.jpg" alt="Ribbed height field · four-corner cloth"><figcaption>Ribbed height field · four-corner cloth</figcaption></figure></div>
-<p>The texture shader samples a repeating plaid designed from layered horizontal and vertical stripes. The compressed checks near the corners show how interpolated UV coordinates follow the cloth. For relief, a separate periodic grayscale map combines wavy ribs and a crossing sinusoid. One-texel forward differences measure its two slopes. These tilt the lighting normal in the local tangent frame.</p>
-<div class="row"><figure><img src="images/Bump16.jpg" alt="Bump · 16 × 16 sphere"><figcaption>Bump · 16 × 16 sphere</figcaption></figure><figure><img src="images/Displacement16.jpg" alt="Displacement · 16 × 16 sphere"><figcaption>Displacement · 16 × 16 sphere</figcaption></figure></div>
-<div class="row"><figure><img src="images/Bump128.jpg" alt="Bump · 128 × 128 sphere"><figcaption>Bump · 128 × 128 sphere</figcaption></figure><figure><img src="images/Displacement128.jpg" alt="Displacement · 128 × 128 sphere"><figcaption>Displacement · 128 × 128 sphere</figcaption></figure></div>
-<p>All relief images use the same non-default map and scale settings (height 0.16, normal 60). Bump mapping changes the highlight inside each triangle and leaves its boundary in place. Displacement also moves vertices along their normals by sampled height. The 16 × 16 sphere undersamples the ribs and has broad angular edges. At 128 × 128, displaced vertices trace the wavy outline. Increasing the bump mesh resolution mainly smooths the underlying sphere outline.</p>
-</section>
-<section><h2>Part 5 · Reflection and custom material</h2>
-<div class="row"><figure><img src="images/MirrorCloth.jpg" alt="Mirror · four-corner cloth"><figcaption>Mirror · four-corner cloth</figcaption></figure><figure><img src="images/mirrorSphere.jpg" alt="Mirror · sphere"><figcaption>Mirror · sphere</figcaption></figure></div>
-<p>The incident viewing ray reflects about the interpolated normal. Sampling the environment cubemap along that direction bends the horizon around the sphere. On the cloth, a single environment feature can cross several folds and change direction at each one.</p>
-<div class="row"><figure><img src="images/CustomCloth.jpg" alt="Custom shader · bias stripes and rim sheen"><figcaption>Custom shader · bias stripes and rim sheen</figcaption></figure></div>
-<p>The custom fabric shader mixes copper and teal along diagonal UV bands. A grazing-angle term adds a pale sheen where the normal turns away from the camera. That sheen follows the crest of the cloth independently of the stripe pattern.</p>
-</section>
-<section><h2>Extra credit · Wind pressure</h2>
-<div class="row"><figure><img src="images/base-240.jpg" alt="Still air · frame 240"><figcaption>Still air · frame 240</figcaption></figure><figure><img src="images/wind.jpg" alt="Wind along +z · frame 240"><figcaption>Wind along +z · frame 240</figcaption></figure></div>
-<p>The Wind (+Z) checkbox enables a steady 25 m/s air stream. Each triangle estimates its velocity from its three masses and projects the relative airflow onto its normal. Pressure scales with the square of that normal speed and with triangle area. Its sign determines the loaded face. Each corner receives one third of the force.</p>
-<p>The sheet begins nearly edge-on to the flow. As gravity turns it downward, it presents more area to the wind. In the matched pinned2 captures, the free-edge midpoint moves from z = −0.001 in still air to z = 0.265 with wind. The two pinned corners keep their original positions in both runs.</p>
-<h3>AI assistance</h3>
-<p>OpenAI Codex generated the simulator and shader implementations, the custom textures, the experiment and capture scripts, and the HTML and PDF write-ups. It built the project, ran the scene comparisons, and checked the outputs.</p>
-</section>
-</main></html>
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>CS184/284A Fall 2026 Homework 4 Write-Up</title>
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+		<style>
+			h1 {
+				text-align: center;
+			}
+
+			.container {
+				margin: 0 auto;
+				padding: 60px 20%;
+			}
+
+			figure {
+				text-align: center;
+			}
+
+			img {
+				display: inline-block;
+			}
+
+			body {
+				font-family: 'Inter', sans-serif;
+			}
+		  .row {
+        display: grid;
+        grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+        text-align: center;
+        gap: 8px;
+        margin: 1em 0;
+      }
+      .row figure { margin: 0; }
+      .row img { width: 100%; max-width: 400px; }
+      a { overflow-wrap: anywhere; }
+      @media (max-width: 680px) {
+        .container { padding: 30px 5%; }
+        .row { grid-template-columns: 1fr; }
+      }
+    </style>
+	</head>
+<body>
+  <div class="container">
+    <h1>CS184/284A Fall 2026 Homework 4 Write-Up</h1>
+    <div style="text-align: center;">Names: Edward Song</div>
+    <br>
+    Link to webpage: <a href="https://cal-cs184-student.github.io/hw4-clothsim-edward-writeup/">https://cal-cs184-student.github.io/hw4-clothsim-edward-writeup/</a>
+    <br>
+    Link to GitHub repository: <a href="https://github.com/cal-cs184-student/hw4-clothsim-edward">https://github.com/cal-cs184-student/hw4-clothsim-edward</a>
+    <br>
+    <a href="writeup.pdf">Download the PDF write-up</a>
+    <figure>
+      <img src="images/sphere5000.jpg" alt="Simulated cloth resting on a sphere" style="width:70%">
+      <figcaption>Cloth draped over a sphere at the default spring stiffness of 5,000.</figcaption>
+    </figure>
+    <h2>Overview</h2>
+    <p>A square of fabric can fall as a single flat sheet, swing from two pins, or buckle into a pile. The simulator uses the same grid in each case. Springs carry tension through the grid, a position-based integrator advances it, and contact corrections keep nearby surfaces apart. The most striking difference in these experiments was the role of damping: changing it altered where the free edge was in its swing even when stiffness and gravity stayed fixed.</p>
+    <h2>Part 1: Masses and springs</h2>
+    <p>Grid coordinates span both endpoints of the sheet. The horizontal scene starts at y = 1. Vertical sheets start in the xy plane with a small random z offset (±0.001) so they can buckle out of plane. After storing every mass in row-major order, the grid builder connects earlier neighbors and records the initial distance of each spring. Building in two passes keeps pointers into the mass array valid.</p>
+    <div class="row" style="--columns: 3">
+      <figure><img src="images/wire-axis.jpg" alt="Structural and bending"><figcaption>Structural and bending</figcaption></figure>
+      <figure><img src="images/wire-diag.jpg" alt="Shear only"><figcaption>Shear only</figcaption></figure>
+      <figure><img src="images/wire-all.jpg" alt="All three families"><figcaption>All three families</figcaption></figure>
+    </div>
+    <p>Pinned2, frame 0. The insets enlarge the same patch. The 4,900 structural links trace the grid axes. The 4,800 bending links span two intervals on those same axes, so they overlap in this view. The 4,802 shear links make the diagonal crosses. All 2,500 masses and the three spring counts were checked in the simulator.</p>
+    <h3>Capture method</h3>
+    <p>Each experiment loads a supplied scene through the C++ scene loader and advances Cloth::simulate at 90 frames/s with 30 substeps/frame. Figures are offscreen framebuffer captures using the exported simulation geometry and the project shader bodies on OpenGL ES. The desktop GLSL pairs were also compiled and linked separately. Camera and material settings stay fixed within each comparison.</p>
+    <h2>Part 2: Simulation via numerical integration</h2>
+    <h3>Spring stiffness</h3>
+    <p>Each substep resets the forces to mass times external acceleration. An enabled spring applies equal and opposite forces proportional to its extension. Bending uses one fifth of the selected stiffness. Verlet integration advances each free mass by its previous displacement times (1 − damping/100), plus acceleration times the squared substep duration. Pinned masses keep their positions.</p>
+    <p>After collision response, a spring longer than 110% of its rest length pulls its free endpoints together. Two free endpoints share the correction equally. A lone free endpoint takes the whole correction. This local pass limits extreme stretch during the swing.</p>
+    <div class="row" style="--columns: 3">
+      <figure><img src="images/soft-45.jpg" alt="Stiffness 500 · frame 45"><figcaption>Stiffness 500 · frame 45</figcaption></figure>
+      <figure><img src="images/base-45.jpg" alt="Stiffness 5,000 · frame 45"><figcaption>Stiffness 5,000 · frame 45</figcaption></figure>
+      <figure><img src="images/stiff-45.jpg" alt="Stiffness 50,000 · frame 45"><figcaption>Stiffness 50,000 · frame 45</figcaption></figure>
+    </div>
+    <div class="row" style="--columns: 3">
+      <figure><img src="images/soft-240.jpg" alt="Stiffness 500 · frame 240"><figcaption>Stiffness 500 · frame 240</figcaption></figure>
+      <figure><img src="images/base-240.jpg" alt="Stiffness 5,000 · frame 240"><figcaption>Stiffness 5,000 · frame 240</figcaption></figure>
+      <figure><img src="images/stiff-240.jpg" alt="Stiffness 50,000 · frame 240"><figcaption>Stiffness 50,000 · frame 240</figcaption></figure>
+    </div>
+    <p>At release every spring is at rest length, so all three free edges initially accelerate under gravity. At frame 45 the softer sheet still extends farther forward. By frame 240 its free-edge midpoint hangs at y = −0.142, compared with −0.083 at the baseline and −0.022 for the stiff sheet. The stiffer springs need less extension to carry the same weight.</p>
+    <h3>Density and damping</h3>
+    <p>Each row varies one input in pinned2. Density values below are the scene values in kg/m². The viewer shows one tenth of these values in g/cm². Defaults are density 150, stiffness 5,000 and damping 0.2%.</p>
+    <div class="row" style="--columns: 3">
+      <figure><img src="images/light-45.jpg" alt="Density 30 · frame 45"><figcaption>Density 30 · frame 45</figcaption></figure>
+      <figure><img src="images/base-45.jpg" alt="Density 150 · frame 45"><figcaption>Density 150 · frame 45</figcaption></figure>
+      <figure><img src="images/heavy-45.jpg" alt="Density 450 · frame 45"><figcaption>Density 450 · frame 45</figcaption></figure>
+    </div>
+    <div class="row" style="--columns: 3">
+      <figure><img src="images/light-240.jpg" alt="Density 30 · frame 240"><figcaption>Density 30 · frame 240</figcaption></figure>
+      <figure><img src="images/base-240.jpg" alt="Density 150 · frame 240"><figcaption>Density 150 · frame 240</figcaption></figure>
+      <figure><img src="images/heavy-240.jpg" alt="Density 450 · frame 240"><figcaption>Density 450 · frame 240</figcaption></figure>
+    </div>
+    <p>Gravity gives each free mass the same initial acceleration. Once the springs stretch, the same spring force produces less acceleration in a heavier mass. At frame 240, the free-edge midpoint lies at y = −0.035, −0.083 and −0.120 from lightest to heaviest.</p>
+    <div class="row" style="--columns: 3">
+      <figure><img src="images/undamped-45.jpg" alt="Damping 0.02% · frame 45"><figcaption>Damping 0.02% · frame 45</figcaption></figure>
+      <figure><img src="images/base-45.jpg" alt="Damping 0.2% · frame 45"><figcaption>Damping 0.2% · frame 45</figcaption></figure>
+      <figure><img src="images/damped-45.jpg" alt="Damping 1% · frame 45"><figcaption>Damping 1% · frame 45</figcaption></figure>
+    </div>
+    <div class="row" style="--columns: 3">
+      <figure><img src="images/undamped-240.jpg" alt="Damping 0.02% · frame 240"><figcaption>Damping 0.02% · frame 240</figcaption></figure>
+      <figure><img src="images/base-240.jpg" alt="Damping 0.2% · frame 240"><figcaption>Damping 0.2% · frame 240</figcaption></figure>
+      <figure><img src="images/damped-240.jpg" alt="Damping 1% · frame 240"><figcaption>Damping 1% · frame 240</figcaption></figure>
+    </div>
+    <p>At 0.02% the sheet swings past vertical and still has visible ripples at frame 240. At 1% it barely dips by frame 45, and its free edge is still 0.59 units forward of the pins at frame 240. Damping removes displacement on every substep, so even a small percentage change strongly affects the transient.</p>
+    <h3>Four pinned corners</h3>
+    <div class="row" style="--columns: 1">
+      <figure><img src="images/four.jpg" alt="Pinned4 · frame 360 · default parameters"><figcaption>Pinned4 · frame 360 · default parameters</figcaption></figure>
+    </div>
+    <p>With four corners fixed at y = 1, the lowest mass settles at y = 0.736. The edge midpoints also sag because only their endpoints are pinned. Between frames 240 and 360 the minimum height agrees to three decimal places.</p>
+    <h2>Part 3: Handling collisions with other objects</h2>
+    <h3>Contact with a plane</h3>
+    <div class="row" style="--columns: 1">
+      <figure><img src="images/plane.jpg" alt="Plane · frame 120 · default parameters"><figcaption>Plane · frame 120 · default parameters</figcaption></figure>
+    </div>
+    <p>The plane test compares signed distances before and after the step. A crossing projects the candidate position onto the plane and adds a small normal offset toward the side it came from. The solver applies a fraction (1 − friction) of the displacement from the previous position to this target. The horizontal drop settles flat, with the mass heights equal to within the capture precision.</p>
+    <h3>Contact with a sphere</h3>
+    <p>When a candidate mass lies inside the sphere, its radial direction identifies the nearest point on the surface. The algorithm applies the displacement from the last position toward this contact point, scaled by one minus the sphere friction. At the exact center the previous radial direction provides a fallback. The display sphere is slightly smaller than the collision sphere, as in the starter viewer.</p>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/sphere500.jpg" alt="Stiffness 500"><figcaption>Stiffness 500</figcaption></figure>
+      <figure><img src="images/sphere5000.jpg" alt="Stiffness 5,000"><figcaption>Stiffness 5,000</figcaption></figure>
+    </div>
+    <div class="row" style="--columns: 1">
+      <figure><img src="images/sphere50000.jpg" alt="Stiffness 50,000"><figcaption>Stiffness 50,000</figcaption></figure>
+    </div>
+    <p>Sphere scene at frame 360. The soft sheet clings to the sphere and forms narrow, deep pleats. The lowest mass reaches y = −0.261. At the default stiffness the folds stand farther out and the low point rises to −0.231. At 50,000 the hem spreads widest and reaches only −0.198. The three runs use the same collision radius, friction, density and damping.</p>
+    <h2>Part 4: Handling self-collisions</h2>
+    <h3>A falling sheet</h3>
+    <p>Testing every pair of 2,500 masses would require more than three million distance checks per substep. The solver groups masses by integer cell coordinates using a hash table. Each box spans three nominal grid spacings along x and y, and the larger spacing along z. Flooring each coordinate handles positions on either side of zero.</p>
+    <p>Within a bucket, a mass accumulates outward corrections for other masses closer than twice the cloth thickness. It moves by their average divided by the number of substeps. An exact overlap uses the initial separation direction. Restricting candidates to a single bucket is an approximation: a close pair across a cell boundary can be missed.</p>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/fold-10.jpg" alt="Frame 10 · first ripples at the floor"><figcaption>Frame 10 · first ripples at the floor</figcaption></figure>
+      <figure><img src="images/fold-32.jpg" alt="Frame 32 · lower edge buckles"><figcaption>Frame 32 · lower edge buckles</figcaption></figure>
+    </div>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/fold-60.jpg" alt="Frame 60 · layers accumulate"><figcaption>Frame 60 · layers accumulate</figcaption></figure>
+      <figure><img src="images/fold-120.jpg" alt="Frame 120 · low pile"><figcaption>Frame 120 · low pile</figcaption></figure>
+    </div>
+    <p>Colors encode mesh normals, making the alternating directions of neighboring folds visible. The bottom row uses a closer view. With the default parameters the highest point drops from 0.95 at frame 10 to 0.086 at frame 120. Small adjustments continue as neighboring layers repel one another.</p>
+    <h3>Fold comparisons</h3>
+    <p>Each run begins with the same perturbed vertical grid. The captures use the same camera and frame, so the height of the remaining upright sheet can be compared directly.</p>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/foldsoft-32.jpg" alt="Stiffness 500 · density 150"><figcaption>Stiffness 500 · density 150</figcaption></figure>
+      <figure><img src="images/fold-32.jpg" alt="Stiffness 5,000 · density 150"><figcaption>Stiffness 5,000 · density 150</figcaption></figure>
+    </div>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/foldstiff-32.jpg" alt="Stiffness 50,000 · density 150"><figcaption>Stiffness 50,000 · density 150</figcaption></figure>
+      <figure><img src="images/foldheavy-32.jpg" alt="Stiffness 5,000 · density 450"><figcaption>Stiffness 5,000 · density 450</figcaption></figure>
+    </div>
+    <p>At frame 32 the soft sheet has already compressed to a height of 0.644, compared with 0.670 for the baseline. The stiff sheet reaches 0.739 and bows farther sideways at its base. Higher stiffness resists the rapid bending that forms a tight stack. Tripling the density with stiffness held fixed lowers the top to 0.655. Its added inertia lets the upper sheet push farther down into the folds.</p>
+    <h2>Part 5: Shaders</h2>
+    <h3>Lighting</h3>
+    <p>The vertex shader transforms the mesh into clip space and passes world positions, normals, tangents and texture coordinates to the rasterizer. The rasterizer interpolates them across each triangle. The fragment shader uses those interpolated values to compute a color for each visible sample.</p>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/ambient.jpg" alt="Ambient only"><figcaption>Ambient only</figcaption></figure>
+      <figure><img src="images/diffuse.jpg" alt="Diffuse only"><figcaption>Diffuse only</figcaption></figure>
+    </div>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/specular.jpg" alt="Specular only"><figcaption>Specular only</figcaption></figure>
+      <figure><img src="images/combined.jpg" alt="Full Blinn–Phong"><figcaption>Full Blinn–Phong</figcaption></figure>
+    </div>
+    <p>Ambient supplies a uniform material-colored floor. Diffuse scales the material color by the positive normal–light cosine and the point light’s inverse-square irradiance. Specular uses the angle between the normal and the halfway direction between light and camera. Raising that cosine to the 48th power concentrates energy in the small highlight. Adding the three terms preserves the shaded silhouette and places the highlight on the lit side.</p>
+    <h3>Texture and surface relief</h3>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/TextureCloth.jpg" alt="Original plaid · four-corner cloth"><figcaption>Original plaid · four-corner cloth</figcaption></figure>
+      <figure><img src="images/BumpCloth.jpg" alt="Ribbed height field · four-corner cloth"><figcaption>Ribbed height field · four-corner cloth</figcaption></figure>
+    </div>
+    <p>The texture shader samples a repeating plaid designed from layered horizontal and vertical stripes. The compressed checks near the corners show how interpolated UV coordinates follow the cloth. For relief, a separate periodic grayscale map combines wavy ribs and a crossing sinusoid. One-texel forward differences measure its two slopes. These tilt the lighting normal in the local tangent frame.</p>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/Bump16.jpg" alt="Bump · 16 × 16 sphere"><figcaption>Bump · 16 × 16 sphere</figcaption></figure>
+      <figure><img src="images/Displacement16.jpg" alt="Displacement · 16 × 16 sphere"><figcaption>Displacement · 16 × 16 sphere</figcaption></figure>
+    </div>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/Bump128.jpg" alt="Bump · 128 × 128 sphere"><figcaption>Bump · 128 × 128 sphere</figcaption></figure>
+      <figure><img src="images/Displacement128.jpg" alt="Displacement · 128 × 128 sphere"><figcaption>Displacement · 128 × 128 sphere</figcaption></figure>
+    </div>
+    <p>All relief images use the same non-default map and scale settings (height 0.16, normal 60). Bump mapping changes the highlight inside each triangle and leaves its boundary in place. Displacement also moves vertices along their normals by sampled height. The 16 × 16 sphere undersamples the ribs and has broad angular edges. At 128 × 128, displaced vertices trace the wavy outline. Increasing the bump mesh resolution mainly smooths the underlying sphere outline.</p>
+    <h3>Reflection and custom material</h3>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/MirrorCloth.jpg" alt="Mirror · four-corner cloth"><figcaption>Mirror · four-corner cloth</figcaption></figure>
+      <figure><img src="images/mirrorSphere.jpg" alt="Mirror · sphere"><figcaption>Mirror · sphere</figcaption></figure>
+    </div>
+    <p>The incident viewing ray reflects about the interpolated normal. Sampling the environment cubemap along that direction bends the horizon around the sphere. On the cloth, a single environment feature can cross several folds and change direction at each one.</p>
+    <div class="row" style="--columns: 1">
+      <figure><img src="images/CustomCloth.jpg" alt="Custom shader · bias stripes and rim sheen"><figcaption>Custom shader · bias stripes and rim sheen</figcaption></figure>
+    </div>
+    <p>The custom fabric shader mixes copper and teal along diagonal UV bands. A grazing-angle term adds a pale sheen where the normal turns away from the camera. That sheen follows the crest of the cloth independently of the stripe pattern.</p>
+    <h2>(Optional) Part 6: Extra Credit - Additional cloth simulation features!</h2>
+    <h3>Wind pressure</h3>
+    <div class="row" style="--columns: 2">
+      <figure><img src="images/base-240.jpg" alt="Still air · frame 240"><figcaption>Still air · frame 240</figcaption></figure>
+      <figure><img src="images/wind.jpg" alt="Wind along +z · frame 240"><figcaption>Wind along +z · frame 240</figcaption></figure>
+    </div>
+    <p>The Wind (+Z) checkbox enables a steady 25 m/s air stream. Each triangle estimates its velocity from its three masses and projects the relative airflow onto its normal. Pressure scales with the square of that normal speed and with triangle area. Its sign determines the loaded face. Each corner receives one third of the force.</p>
+    <p>The sheet begins nearly edge-on to the flow. As gravity turns it downward, it presents more area to the wind. In the matched pinned2 captures, the free-edge midpoint moves from z = −0.001 in still air to z = 0.265 with wind. The two pinned corners keep their original positions in both runs.</p>
+    <h2>AI assistance</h2>
+    <p>OpenAI Codex generated the simulator and shader implementations, the custom textures, the experiment and capture scripts, and the HTML and PDF write-ups. It built the project, ran the scene comparisons, and checked the outputs.</p>
+  </div>
+</body>
+</html>
